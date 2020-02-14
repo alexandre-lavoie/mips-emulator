@@ -1,4 +1,5 @@
 mod lib;
+mod enums;
 mod constants;
 use std::env;
 
@@ -21,53 +22,54 @@ fn main() {
 
         // F-Box
 
-        let opcode = lib::fetch_opcode(&ram, pc);
+        let opcode_hex = lib::fetch_opcode(&ram, pc);
         let (rs, rt) = lib::fetch_registers(&ram, pc);
-        let (rd, shamt, funct) = lib::fetch_rtype(&ram, pc);
+        let (rd, shamt, funct_hex) = lib::fetch_rtype(&ram, pc);
         let imm = lib::fetch_immediate(&ram, pc);
 
         // D-Box
 
         // Instruction Type
-        match opcode {
+        match opcode_hex {
             0x0 => println!("R-Type Intruction"),
             0x2 | 0x3 => println!("J-Type Instruction"),
             _ => println!("I-Type Instruction")
         }
 
         // Instruction Structure
-        match opcode {
+        let (opcode, funct): (enums::Opcode, enums::Function) = match opcode_hex {
             0x0 => {
-                match funct {
-                    0x21 => println!("addu rd, rs, rt"),
+                match funct_hex {
+                    0x21 => { println!("addu rd, rs, rt"); (enums::Opcode::FUNCT, enums::Function::ADDU) },
 
                     _ => todo!()
                 }
             }
-            0x8 => println!("addi rt, rs, imm"),
-            0x9 => println!("addiu rt, rs, imm"),
-            0x20 => println!("lb rt, imm(rs)"),
-            0x28 => println!("sb rt, imm(rs)"),
+            0x8 => { println!("addi rt, rs, imm"); (enums::Opcode::ADDI, enums::Function::NULL) },
+            0x9 => { println!("addiu rt, rs, imm"); (enums::Opcode::ADDIU, enums::Function::NULL) },
+            0x20 => { println!("lb rt, imm(rs)"); (enums::Opcode::LB, enums::Function::NULL) },
+            0x28 => { println!("sb rt, imm(rs)"); (enums::Opcode::SB, enums::Function::NULL) },
             _ => todo!()
-        }
+        };
 
         // X-Box
 
-        let mut x_out: usize = 0;
-        match opcode {
-            0x0 => {
+        let x_out: usize = match opcode {
+            enums::Opcode::FUNCT => {
                 match funct {
-                    0x21 => {
+                    enums::Function::ADDU => {
                         registry_file[rd as usize] = registry_file[rs as usize] + registry_file[rt as usize];
 
                         println!("$r{} = $r{} + $r{}", rd, rs, rt);
+
+                        0
                     }
 
-                    _ => println!("No Execution")
+                    _ => {println!("No Execution"); 0}
                 }
             }
 
-            0x8 => {
+            enums::Opcode::ADDI => {
                 if imm & 0b1000_0000 == 1 {
                     registry_file[rt as usize] = registry_file[rs as usize] - imm & 0b0111_1111;
 
@@ -77,45 +79,51 @@ fn main() {
 
                     println!("$r{} = $r{} + {}", rt, rs, imm);
                 }
+
+                0
             }
 
-            0x9 => {
+            enums::Opcode::ADDIU => {
                 registry_file[rt as usize] = registry_file[rs as usize] + imm;
 
                 println!("$r{} = $r{} + {}", rt, rs, imm);
+
+                0
             }
 
-            0x20 | 0x28 => {
-                x_out = (registry_file[rs as usize] + shamt as u16) as usize;
+            enums::Opcode::LB | enums::Opcode::SB => {
                 println!("X = $r{} + {}", rs, shamt);
+
+                (registry_file[rs as usize] + shamt as u16) as usize
             }
 
-            _ => println!("No X Execution")
-        }
+            _ => {println!("No X Execution"); 0}
+        };
         
         // M-Box
 
-        let mut m_out: usize = 0;
-        match opcode {
-            0x20 => {
+        let m_out: usize = match opcode {
+            enums::Opcode::LB => {
+                println!("$r{} = ram[{}] | 1 byte", rt, x_out);
+
                 registry_file[rt as usize] = reverse_bits![ram[x_out]] as u16;
 
-                println!("$r{} = ram[{}] | 1 byte", rt, x_out);
+                0
             }
 
-            0x28 => {
-                m_out = registry_file[rs as usize] as usize;
+            enums::Opcode::SB => {
+                println!("M = $r{} -> {}", rt, registry_file[rs as usize]);
 
-                println!("M = $r{} -> {}", rt, m_out);
+                registry_file[rs as usize] as usize
             }
 
-            _ => println!("No M Execution")
-        }
+            _ => {println!("No M Execution"); 0}
+        };
 
         // W-Box
 
         match opcode {
-            0x28 => {
+            enums::Opcode::SB => {
                 ram[x_out as usize] = m_out as u8;
 
                 println!("ram[X] = M | 1 byte");
