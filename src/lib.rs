@@ -1,6 +1,3 @@
-use std::fs::File;
-use std::io::Read;
-
 /// Macro to reverse bit order.
 /// 
 /// # Examples
@@ -143,13 +140,4 @@ pub fn fetch_rtype(ram: &[u8], pc: usize) -> (u8, u8, u8) {
     let funct: u8 = ((data & 0b1111_1100_0000_0000) >> 10) as u8;
 
     return (rd, shamt, funct);
-}
-
-pub fn fetch_rom(file: String) {
-    let mut file=File::open(file).unwrap();
-    let mut buf=[0u8;12];
-    file.read(&mut buf).unwrap();
-    println!("{:?}",buf);
-
-    todo!();
 }
